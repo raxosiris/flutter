@@ -848,7 +848,7 @@ class Scaffold extends StatefulWidget {
   ///
   /// The [persistentFooterButtons] are rendered above the
   /// [bottomNavigationBar] but below the [body].
-  final List<Widget> persistentFooterButtons;
+  final Widget persistentFooterButtons;
 
   /// A panel displayed to the side of the [body], often hidden on mobile
   /// devices. Swipes in from either left-to-right ([TextDirection.ltr]) or
@@ -1702,30 +1702,16 @@ class ScaffoldState extends State<Scaffold> with TickerProviderStateMixin {
     }
 
     if (widget.persistentFooterButtons != null) {
+      final bool removeBottomPadding =
+          widget.bottomNavigationBar != null;
       _addIfNonNull(
         children,
-        Container(
-          decoration: BoxDecoration(
-            border: Border(
-              top: Divider.createBorderSide(context, width: 1.0),
-            ),
-          ),
-          child: SafeArea(
-            child: ButtonTheme.bar(
-              child: SafeArea(
-                top: false,
-                child: ButtonBar(
-                  children: widget.persistentFooterButtons
-                ),
-              ),
-            ),
-          ),
-        ),
+        widget.persistentFooterButtons,
         _ScaffoldSlot.persistentFooter,
         removeLeftPadding: false,
         removeTopPadding: true,
         removeRightPadding: false,
-        removeBottomPadding: false,
+        removeBottomPadding: removeBottomPadding,
       );
     }
 
