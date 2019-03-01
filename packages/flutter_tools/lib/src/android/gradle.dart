@@ -112,6 +112,21 @@ Future<GradleProject> _gradleProject() async {
   return _cachedGradleProject;
 }
 
+/// Runs `gradlew dependencies`, ensuring that dependencies are resolved and
+/// potentially downloaded.
+Future<void> checkGradleDependencies() async {
+  final Status progress = logger.startProgress('Ensuring gradle dependencies are up to date...', timeout: kSlowOperation);
+  final FlutterProject flutterProject = await FlutterProject.current();
+  final String gradle = await _ensureGradle(flutterProject);
+  await runCheckedAsync(
+    <String>[gradle, 'dependencies'],
+    workingDirectory: flutterProject.android.hostAppGradleRoot.path,
+    environment: _gradleEnv,
+  );
+  androidSdk.reinitialize();
+  progress.stop();
+}
+
 // Note: Dependencies are resolved and possibly downloaded as a side-effect
 // of calculating the app properties using Gradle. This may take minutes.
 Future<GradleProject> _readGradleProject() async {
@@ -146,7 +161,7 @@ Future<GradleProject> _readGradleProject() async {
     project = GradleProject(
       <String>['debug', 'profile', 'release'],
       <String>[], flutterProject.android.gradleAppOutV1Directory,
-        flutterProject.android.gradleAppBundleOutV1Directory
+        flutterProject.android.gradleAppBundleOutV1Directory,
     );
   }
   status.stop();
@@ -449,7 +464,7 @@ Future<void> _buildGradleProjectV2(
       }
 
       return line;
-    }
+    },
   );
   status.stop();
 

@@ -65,6 +65,22 @@ typedef InputCounterWidgetBuilder = Widget Function(
 /// To integrate the [TextField] into a [Form] with other [FormField] widgets,
 /// consider using [TextFormField].
 ///
+/// {@tool sample}
+/// This example shows how to create a [TextField] that will obscure input. The
+/// [InputDecoration] surrounds the field in a border using [OutlineInputBorder]
+/// and adds a label.
+///
+/// ```dart
+/// TextField(
+///   obscureText: true,
+///   decoration: InputDecoration(
+///     border: OutlineInputBorder(),
+///     labelText: 'Password',
+///   ),
+/// )
+/// ```
+/// {@end-tool}
+///
 /// See also:
 ///
 ///  * <https://material.io/design/components/text-fields.html>
@@ -124,6 +140,7 @@ class TextField extends StatefulWidget {
     this.textInputAction,
     this.textCapitalization = TextCapitalization.none,
     this.style,
+    this.strutStyle,
     this.textAlign = TextAlign.start,
     this.textDirection,
     this.autofocus = false,
@@ -142,7 +159,7 @@ class TextField extends StatefulWidget {
     this.cursorColor,
     this.keyboardAppearance,
     this.scrollPadding = const EdgeInsets.all(20.0),
-    this.dragStartBehavior = DragStartBehavior.down,
+    this.dragStartBehavior = DragStartBehavior.start,
     this.enableInteractiveSelection,
     this.onTap,
     this.buildCounter,
@@ -231,6 +248,9 @@ class TextField extends StatefulWidget {
   /// If null, defaults to the `subhead` text style from the current [Theme].
   final TextStyle style;
 
+  /// {@macro flutter.widgets.editableText.strutStyle}
+  final StrutStyle strutStyle;
+
   /// {@macro flutter.widgets.editableText.textAlign}
   final TextAlign textAlign;
 
@@ -258,7 +278,7 @@ class TextField extends StatefulWidget {
   ///
   /// If set, a character counter will be displayed below the
   /// field showing how many characters have been entered. If set to a number
-  /// greather than 0, it will also display the maximum number allowed. If set
+  /// greater than 0, it will also display the maximum number allowed. If set
   /// to [TextField.noMaxLength] then only the current character count is displayed.
   ///
   /// After [maxLength] characters have been input, additional input
@@ -475,7 +495,7 @@ class _TextFieldState extends State<TextField> with AutomaticKeepAliveClientMixi
       .applyDefaults(themeData.inputDecorationTheme)
       .copyWith(
         enabled: widget.enabled,
-        hintMaxLines: widget.decoration?.hintMaxLines ?? widget.maxLines
+        hintMaxLines: widget.decoration?.hintMaxLines ?? widget.maxLines,
       );
 
     // No need to build anything if counter or counterText were given directly.
@@ -564,6 +584,21 @@ class _TextFieldState extends State<TextField> with AutomaticKeepAliveClientMixi
     _editableTextKey.currentState?.requestKeyboard();
   }
 
+  void _handleSelectionChanged(TextSelection selection, SelectionChangedCause cause) {
+    // iOS cursor doesn't move via a selection handle. The scroll happens
+    // directly from new text selection changes.
+    switch (Theme.of(context).platform) {
+      case TargetPlatform.iOS:
+        if (cause == SelectionChangedCause.longPress) {
+          _editableTextKey.currentState?.bringIntoView(selection.base);
+        }
+        return;
+      case TargetPlatform.android:
+      case TargetPlatform.fuchsia:
+        // Do nothing.
+    }
+  }
+
   InteractiveInkFeature _createInkFeature(TapDownDetails details) {
     final MaterialInkController inkController = Material.of(context);
     final ThemeData themeData = Theme.of(context);
@@ -637,11 +672,14 @@ class _TextFieldState extends State<TextField> with AutomaticKeepAliveClientMixi
     _cancelCurrentSplash();
   }
 
-  void _handleSingleLongTapDown() {
+  void _handleSingleLongTapStart(LongPressStartDetails details) {
     if (widget.selectionEnabled) {
       switch (Theme.of(context).platform) {
         case TargetPlatform.iOS:
-          _renderEditable.selectPosition(cause: SelectionChangedCause.longPress);
+          _renderEditable.selectPositionAt(
+            from: details.globalPosition,
+            cause: SelectionChangedCause.longPress,
+          );
           break;
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
@@ -649,9 +687,33 @@ class _TextFieldState extends State<TextField> with AutomaticKeepAliveClientMixi
           Feedback.forLongPress(context);
           break;
       }
-      _editableTextKey.currentState.showToolbar();
     }
     _confirmCurrentSplash();
+  }
+
+  void _handleSingleLongTapMoveUpdate(LongPressMoveUpdateDetails details) {
+    if (widget.selectionEnabled) {
+      switch (Theme.of(context).platform) {
+        case TargetPlatform.iOS:
+          _renderEditable.selectPositionAt(
+            from: details.globalPosition,
+            cause: SelectionChangedCause.longPress,
+          );
+          break;
+        case TargetPlatform.android:
+        case TargetPlatform.fuchsia:
+          _renderEditable.selectWordsInRange(
+            from: details.globalPosition - details.offsetFromOrigin,
+            to: details.globalPosition,
+            cause: SelectionChangedCause.longPress,
+          );
+          break;
+      }
+    }
+  }
+
+  void _handleSingleLongTapEnd(LongPressEndDetails details) {
+    _editableTextKey.currentState.showToolbar();
   }
 
   void _handleDoubleTapDown(TapDownDetails details) {
@@ -763,6 +825,7 @@ class _TextFieldState extends State<TextField> with AutomaticKeepAliveClientMixi
         textInputAction: widget.textInputAction,
         textCapitalization: widget.textCapitalization,
         style: style,
+        strutStyle: widget.strutStyle,
         textAlign: widget.textAlign,
         textDirection: widget.textDirection,
         autofocus: widget.autofocus,
@@ -772,6 +835,7 @@ class _TextFieldState extends State<TextField> with AutomaticKeepAliveClientMixi
         selectionColor: themeData.textSelectionColor,
         selectionControls: widget.selectionEnabled ? textSelectionControls : null,
         onChanged: widget.onChanged,
+        onSelectionChanged: _handleSelectionChanged,
         onEditingComplete: widget.onEditingComplete,
         onSubmitted: widget.onSubmitted,
         inputFormatters: formatters,
@@ -820,7 +884,9 @@ class _TextFieldState extends State<TextField> with AutomaticKeepAliveClientMixi
           onForcePressStart: forcePressEnabled ? _handleForcePressStarted : null,
           onSingleTapUp: _handleSingleTapUp,
           onSingleTapCancel: _handleSingleTapCancel,
-          onSingleLongTapDown: _handleSingleLongTapDown,
+          onSingleLongTapStart: _handleSingleLongTapStart,
+          onSingleLongTapMoveUpdate: _handleSingleLongTapMoveUpdate,
+          onSingleLongTapEnd: _handleSingleLongTapEnd,
           onDoubleTapDown: _handleDoubleTapDown,
           behavior: HitTestBehavior.translucent,
           child: child,

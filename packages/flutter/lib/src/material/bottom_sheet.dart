@@ -57,7 +57,7 @@ class BottomSheet extends StatefulWidget {
     this.enableDrag = true,
     this.elevation = 0.0,
     @required this.onClosing,
-    @required this.builder
+    @required this.builder,
   }) : assert(enableDrag != null),
        assert(onClosing != null),
        assert(builder != null),
@@ -84,7 +84,7 @@ class BottomSheet extends StatefulWidget {
   final WidgetBuilder builder;
 
   /// If true, the bottom sheet can dragged up and down and dismissed by swiping
-  /// downards.
+  /// downwards.
   ///
   /// Default is true.
   final bool enableDrag;
@@ -243,8 +243,8 @@ class _ModalBottomSheetState<T> extends State<_ModalBottomSheet<T>> {
               ),
             ),
           );
-        }
-      )
+        },
+      ),
     );
   }
 }

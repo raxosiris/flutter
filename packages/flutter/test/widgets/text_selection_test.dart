@@ -9,7 +9,7 @@ void main() {
   int tapCount;
   int singleTapUpCount;
   int singleTapCancelCount;
-  int singleLongTapDownCount;
+  int singleLongTapStartCount;
   int doubleTapDownCount;
   int forcePressStartCount;
   int forcePressEndCount;
@@ -19,7 +19,7 @@ void main() {
   void _handleTapDown(TapDownDetails details) { tapCount++; }
   void _handleSingleTapUp(TapUpDetails details) { singleTapUpCount++; }
   void _handleSingleTapCancel() { singleTapCancelCount++; }
-  void _handleSingleLongTapDown() { singleLongTapDownCount++; }
+  void _handleSingleLongTapStart(LongPressStartDetails details) { singleLongTapStartCount++; }
   void _handleDoubleTapDown(TapDownDetails details) { doubleTapDownCount++; }
   void _handleForcePressStart(ForcePressDetails details) { forcePressStartCount++; }
   void _handleForcePressEnd(ForcePressDetails details) { forcePressEndCount++; }
@@ -28,7 +28,7 @@ void main() {
     tapCount = 0;
     singleTapUpCount = 0;
     singleTapCancelCount = 0;
-    singleLongTapDownCount = 0;
+    singleLongTapStartCount = 0;
     doubleTapDownCount = 0;
     forcePressStartCount = 0;
     forcePressEndCount = 0;
@@ -41,7 +41,7 @@ void main() {
         onTapDown: _handleTapDown,
         onSingleTapUp: _handleSingleTapUp,
         onSingleTapCancel: _handleSingleTapCancel,
-        onSingleLongTapDown: _handleSingleLongTapDown,
+        onSingleLongTapStart: _handleSingleLongTapStart,
         onDoubleTapDown: _handleDoubleTapDown,
         onForcePressStart: _handleForcePressStart,
         onForcePressEnd: _handleForcePressEnd,
@@ -108,7 +108,7 @@ void main() {
     expect(singleTapCancelCount, 0);
     expect(doubleTapDownCount, 1);
     // The double tap down hold supersedes the single tap down.
-    expect(singleLongTapDownCount, 0);
+    expect(singleLongTapStartCount, 0);
 
     await gesture.up();
     // Nothing else happens on up.
@@ -116,10 +116,10 @@ void main() {
     expect(tapCount, 2);
     expect(singleTapCancelCount, 0);
     expect(doubleTapDownCount, 1);
-    expect(singleLongTapDownCount, 0);
+    expect(singleLongTapStartCount, 0);
   });
 
-  testWidgets('a very quick swipe is just a canceled tap', (WidgetTester tester) async {
+  testWidgets('a very quick swipe is ignored', (WidgetTester tester) async {
     await pumpGestureDetector(tester);
     final TestGesture gesture = await tester.startGesture(const Offset(200, 200));
     await tester.pump(const Duration(milliseconds: 20));
@@ -127,17 +127,17 @@ void main() {
     await tester.pump();
     expect(singleTapUpCount, 0);
     expect(tapCount, 0);
-    expect(singleTapCancelCount, 1);
+    expect(singleTapCancelCount, 0);
     expect(doubleTapDownCount, 0);
-    expect(singleLongTapDownCount, 0);
+    expect(singleLongTapStartCount, 0);
 
     await gesture.up();
     // Nothing else happens on up.
     expect(singleTapUpCount, 0);
     expect(tapCount, 0);
-    expect(singleTapCancelCount, 1);
+    expect(singleTapCancelCount, 0);
     expect(doubleTapDownCount, 0);
-    expect(singleLongTapDownCount, 0);
+    expect(singleLongTapStartCount, 0);
   });
 
   testWidgets('a slower swipe has a tap down and a canceled tap', (WidgetTester tester) async {
@@ -150,7 +150,7 @@ void main() {
     expect(tapCount, 1);
     expect(singleTapCancelCount, 1);
     expect(doubleTapDownCount, 0);
-    expect(singleLongTapDownCount, 0);
+    expect(singleLongTapStartCount, 0);
   });
 
   testWidgets('a force press intiates a force press', (WidgetTester tester) async {
@@ -167,7 +167,7 @@ void main() {
         position: forcePressOffset,
         pressure: 0.0,
         pressureMax: 6.0,
-        pressureMin: 0.0
+        pressureMin: 0.0,
       ),
     );
 
@@ -182,7 +182,7 @@ void main() {
         position: forcePressOffset,
         pressure: 0.0,
         pressureMax: 6.0,
-        pressureMin: 0.0
+        pressureMin: 0.0,
       ),
     );
     await gesture.updateWithCustomEvent(const PointerMoveEvent(pointer: pointerValue, position: Offset(0.0, 0.0), pressure: 0.5, pressureMin: 0, pressureMax: 1));
@@ -196,7 +196,7 @@ void main() {
         position: forcePressOffset,
         pressure: 0.0,
         pressureMax: 6.0,
-        pressureMin: 0.0
+        pressureMin: 0.0,
       ),
     );
     await gesture.updateWithCustomEvent(const PointerMoveEvent(pointer: pointerValue, position: Offset(0.0, 0.0), pressure: 0.5, pressureMin: 0, pressureMax: 1));
@@ -210,7 +210,7 @@ void main() {
         position: forcePressOffset,
         pressure: 0.0,
         pressureMax: 6.0,
-        pressureMin: 0.0
+        pressureMin: 0.0,
       ),
     );
     await gesture.updateWithCustomEvent(const PointerMoveEvent(pointer: pointerValue, position: Offset(0.0, 0.0), pressure: 0.5, pressureMin: 0, pressureMax: 1));
@@ -231,7 +231,7 @@ void main() {
           position: forcePressOffset,
           pressure: 0.0,
           pressureMax: 6.0,
-          pressureMin: 0.0
+          pressureMin: 0.0,
       ),
 
     );
@@ -242,7 +242,7 @@ void main() {
         position: Offset(0.0, 0.0),
         pressure: 0.0,
         pressureMin: 0,
-        pressureMax: 1
+        pressureMax: 1,
       )
     );
     await tester.pump(const Duration(milliseconds: 50));
@@ -256,7 +256,7 @@ void main() {
         position: forcePressOffset,
         pressure: 0.0,
         pressureMax: 6.0,
-        pressureMin: 0.0
+        pressureMin: 0.0,
       ),
     );
     await gesture.updateWithCustomEvent(const PointerMoveEvent(
@@ -264,7 +264,7 @@ void main() {
       position: Offset(0.0, 0.0),
       pressure: 0.5,
       pressureMin: 0,
-      pressureMax: 1
+      pressureMax: 1,
     ));
     expect(forcePressStartCount, 1);
 
