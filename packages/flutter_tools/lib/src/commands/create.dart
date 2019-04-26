@@ -91,9 +91,16 @@ class CreateCommand extends FlutterCommand {
       abbr: 's',
       help: 'Specifies the Flutter code sample to use as the main.dart for an application. Implies '
         '--template=app. The value should be the sample ID of the desired sample from the API '
-        'documentation website (http://docs.flutter.io).',
+        'documentation website (http://docs.flutter.dev). An example can be found at '
+        'https://master-api.flutter.dev/flutter/widgets/SingleChildScrollView-class.html',
       defaultsTo: null,
       valueHelp: 'id',
+    );
+    argParser.addOption(
+      'list-samples',
+      help: 'Specifies a JSON output file for a listing of Flutter code samples '
+        'that can created with --sample.',
+      valueHelp: 'path',
     );
     argParser.addFlag(
       'overwrite',
@@ -179,6 +186,11 @@ class CreateCommand extends FlutterCommand {
     return null;
   }
 
+  /// The hostname for the Flutter docs for the current channel.
+  String get _snippetsHost => FlutterVersion.instance.channel == 'stable'
+        ? 'docs.flutter.io'
+        : 'master-docs.flutter.io';
+
   Future<String> _fetchSampleFromServer(String sampleId) async {
     // Sanity check the sampleId
     if (sampleId.contains(RegExp(r'[^-\w\.]'))) {
@@ -186,14 +198,36 @@ class CreateCommand extends FlutterCommand {
         'documentation and try again.');
     }
 
-    final String host = FlutterVersion.instance.channel == 'stable'
-        ? 'docs.flutter.io'
-        : 'master-docs.flutter.io';
-    return utf8.decode(await fetchUrl(Uri.https(host, 'snippets/$sampleId.dart')));
+    return utf8.decode(await fetchUrl(Uri.https(_snippetsHost, 'snippets/$sampleId.dart')));
+  }
+
+  /// Fetches the samples index file from the Flutter docs website.
+  Future<String> _fetchSamplesIndexFromServer() async {
+    return utf8.decode(await fetchUrl(Uri.https(_snippetsHost, 'snippets/index.json')));
+  }
+
+  /// Fetches the samples index file from the server and writes it to
+  /// [outputFilePath].
+  Future<void> _writeSamplesJson(String outputFilePath) async {
+    try {
+      final File outputFile = fs.file(outputFilePath);
+      if (outputFile.existsSync()) {
+        throwToolExit('File "$outputFilePath" already exists', exitCode: 1);
+      }
+      outputFile.writeAsStringSync(await _fetchSamplesIndexFromServer());
+      printStatus('Wrote samples JSON to "$outputFilePath"');
+    } catch (e) {
+      throwToolExit('Failed to write samples JSON to "$outputFilePath": $e', exitCode: 2);
+    }
   }
 
   @override
   Future<FlutterCommandResult> runCommand() async {
+    if (argResults['list-samples'] != null) {
+      await _writeSamplesJson(argResults['list-samples']);
+      return null;
+    }
+
     if (argResults.rest.isEmpty)
       throwToolExit('No option specified for the output directory.\n$usage', exitCode: 2);
 
@@ -212,7 +246,7 @@ class CreateCommand extends FlutterCommand {
       throwToolExit('Neither the --flutter-root command line flag nor the FLUTTER_ROOT environment '
         'variable was specified. Unable to find package:flutter.', exitCode: 2);
 
-    await Cache.instance.updateAll();
+    await Cache.instance.updateAll(<DevelopmentArtifact>{ DevelopmentArtifact.universal });
 
     final String flutterRoot = fs.path.absolute(Cache.flutterRoot);
 
@@ -374,7 +408,7 @@ Your $application code is in $relativeAppMain.
 Your plugin code is in $relativePluginMain.
 
 Host platform code is in the "android" and "ios" directories under $relativePluginPath.
-To edit platform code in an IDE see https://flutter.io/developing-packages/#edit-plugin-package.
+To edit platform code in an IDE see https://flutter.dev/developing-packages/#edit-plugin-package.
 ''');
         }
       } else {
@@ -410,7 +444,7 @@ To edit platform code in an IDE see https://flutter.io/developing-packages/#edit
         offline: argResults['offline'],
       );
       final FlutterProject project = await FlutterProject.fromDirectory(directory);
-      await project.ensureReadyForPlatformSpecificTooling();
+      await project.ensureReadyForPlatformSpecificTooling(checkProjects: false);
     }
     return generatedCount;
   }
@@ -477,7 +511,7 @@ To edit platform code in an IDE see https://flutter.io/developing-packages/#edit
 
     if (argResults['pub']) {
       await pubGet(context: PubContext.create, directory: directory.path, offline: argResults['offline']);
-      await project.ensureReadyForPlatformSpecificTooling();
+      await project.ensureReadyForPlatformSpecificTooling(checkProjects: false);
     }
 
     gradle.updateLocalProperties(project: project, requireAndroidSdk: false);
@@ -612,7 +646,7 @@ String _createUTIIdentifier(String organization, String name) {
   return segments.join('.');
 }
 
-final Set<String> _packageDependencies = Set<String>.from(<String>[
+const Set<String> _packageDependencies = <String>{
   'analyzer',
   'args',
   'async',
@@ -639,7 +673,7 @@ final Set<String> _packageDependencies = Set<String>.from(<String>[
   'utf',
   'watcher',
   'yaml',
-]);
+};
 
 /// Return null if the project name is legal. Return a validation message if
 /// we should disallow the project name.

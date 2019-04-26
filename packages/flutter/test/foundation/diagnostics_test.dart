@@ -35,6 +35,7 @@ class TestTree extends Object with DiagnosticableTreeMixin {
 
   @override
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
+    super.debugFillProperties(properties);
     if (style != null)
       properties.defaultDiagnosticsTreeStyle = style;
 
@@ -951,7 +952,7 @@ void main() {
   });
 
   test('callback property test', () {
-    final Function onClick = () {};
+    final Function onClick = () { };
     final ObjectFlagProperty<Function> present = ObjectFlagProperty<Function>(
       'onClick',
       onClick,
@@ -1385,7 +1386,7 @@ void main() {
   });
 
   test('has property test', () {
-    final Function onClick = () {};
+    final Function onClick = () { };
     final ObjectFlagProperty<Function> has = ObjectFlagProperty<Function>.has(
       'onClick',
       onClick,

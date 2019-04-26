@@ -1756,7 +1756,7 @@ abstract class RenderBox extends RenderObject {
           '  $constraints\n'
           'The exact size it was given was:\n'
           '  $_size\n'
-          'See https://flutter.io/layout/ for more information.'
+          'See https://flutter.dev/layout/ for more information.'
         );
       }
       // verify that the size is within the constraints
@@ -1801,9 +1801,9 @@ abstract class RenderBox extends RenderObject {
         testIntrinsicsForValues(getMinIntrinsicWidth, getMaxIntrinsicWidth, 'Width', double.infinity);
         testIntrinsicsForValues(getMinIntrinsicHeight, getMaxIntrinsicHeight, 'Height', double.infinity);
         if (constraints.hasBoundedWidth)
-          testIntrinsicsForValues(getMinIntrinsicWidth, getMaxIntrinsicWidth, 'Width', constraints.maxWidth);
+          testIntrinsicsForValues(getMinIntrinsicWidth, getMaxIntrinsicWidth, 'Width', constraints.maxHeight);
         if (constraints.hasBoundedHeight)
-          testIntrinsicsForValues(getMinIntrinsicHeight, getMaxIntrinsicHeight, 'Height', constraints.maxHeight);
+          testIntrinsicsForValues(getMinIntrinsicHeight, getMaxIntrinsicHeight, 'Height', constraints.maxWidth);
 
         // TODO(ianh): Test that values are internally consistent in more ways than the above.
 

@@ -24,10 +24,12 @@ import '../base/process_manager.dart';
 import '../base/terminal.dart';
 import '../build_info.dart';
 import '../bundle.dart';
+import '../codegen.dart';
 import '../compile.dart';
 import '../convert.dart';
 import '../dart/package_map.dart';
 import '../globals.dart';
+import '../project.dart';
 import '../vmservice.dart';
 import 'watcher.dart';
 
@@ -72,7 +74,7 @@ final Map<InternetAddressType, InternetAddress> _kHosts = <InternetAddressType, 
 
 /// Configure the `test` package to work with Flutter.
 ///
-/// On systems where each [_FlutterPlatform] is only used to run one test suite
+/// On systems where each [FlutterPlatform] is only used to run one test suite
 /// (that is, one Dart file with a `*_test.dart` file name and a single `void
 /// main()`), you can set an observatory port explicitly.
 void installHook({
@@ -81,33 +83,43 @@ void installHook({
   bool enableObservatory = false,
   bool machine = false,
   bool startPaused = false,
+  bool disableServiceAuthCodes = false,
   int port = 0,
   String precompiledDillPath,
   Map<String, String> precompiledDillFiles,
   bool trackWidgetCreation = false,
   bool updateGoldens = false,
+  bool buildTestAssets = false,
   int observatoryPort,
   InternetAddressType serverType = InternetAddressType.IPv4,
   Uri projectRootDirectory,
+  FlutterProject flutterProject,
+  String icudtlPath,
 }) {
   assert(enableObservatory || (!startPaused && observatoryPort == null));
   hack.registerPlatformPlugin(
     <Runtime>[Runtime.vm],
-    () => _FlutterPlatform(
-      shellPath: shellPath,
-      watcher: watcher,
-      machine: machine,
-      enableObservatory: enableObservatory,
-      startPaused: startPaused,
-      explicitObservatoryPort: observatoryPort,
-      host: _kHosts[serverType],
-      port: port,
-      precompiledDillPath: precompiledDillPath,
-      precompiledDillFiles: precompiledDillFiles,
-      trackWidgetCreation: trackWidgetCreation,
-      updateGoldens: updateGoldens,
-      projectRootDirectory: projectRootDirectory,
-    ),
+    () {
+      return FlutterPlatform(
+        shellPath: shellPath,
+        watcher: watcher,
+        machine: machine,
+        enableObservatory: enableObservatory,
+        startPaused: startPaused,
+        disableServiceAuthCodes: disableServiceAuthCodes,
+        explicitObservatoryPort: observatoryPort,
+        host: _kHosts[serverType],
+        port: port,
+        precompiledDillPath: precompiledDillPath,
+        precompiledDillFiles: precompiledDillFiles,
+        trackWidgetCreation: trackWidgetCreation,
+        updateGoldens: updateGoldens,
+        buildTestAssets: buildTestAssets,
+        projectRootDirectory: projectRootDirectory,
+        flutterProject: flutterProject,
+        icudtlPath: icudtlPath,
+      );
+    }
   );
 }
 
@@ -232,7 +244,7 @@ class _CompilationRequest {
 // This class is a wrapper around compiler that allows multiple isolates to
 // enqueue compilation requests, but ensures only one compilation at a time.
 class _Compiler {
-  _Compiler(bool trackWidgetCreation, Uri projectRootDirectory) {
+  _Compiler(bool trackWidgetCreation, Uri projectRootDirectory, FlutterProject flutterProject) {
     // Compiler maintains and updates single incremental dill file.
     // Incremental compilation requests done for each test copy that file away
     // for independent execution.
@@ -265,7 +277,18 @@ class _Compiler {
       trackWidgetCreation: trackWidgetCreation,
     );
 
-    ResidentCompiler createCompiler() {
+    Future<ResidentCompiler> createCompiler() async {
+      if (flutterProject.hasBuilders) {
+        return CodeGeneratingResidentCompiler.create(
+          flutterProject: flutterProject,
+          trackWidgetCreation: trackWidgetCreation,
+          compilerMessageConsumer: reportCompilerMessage,
+          initializeFromDill: testFilePath,
+          // We already ran codegen once at the start, we only need to
+          // configure builders.
+          runCold: true,
+        );
+      }
       return ResidentCompiler(
         artifacts.getArtifactPath(Artifact.flutterPatchedSdkPath),
         packagesPath: PackageMap.globalPackagesPath,
@@ -290,13 +313,13 @@ class _Compiler {
           final Stopwatch compilerTime = Stopwatch()..start();
           bool firstCompile = false;
           if (compiler == null) {
-            compiler = createCompiler();
+            compiler = await createCompiler();
             firstCompile = true;
           }
           suppressOutput = false;
           final CompilerOutput compilerOutput = await compiler.recompile(
             request.path,
-            <String>[request.path],
+            <Uri>[Uri.parse(request.path)],
             outputPath: outputDill.path,
           );
           final String outputPath = compilerOutput?.outputFilename;
@@ -359,13 +382,15 @@ class _Compiler {
   }
 }
 
-class _FlutterPlatform extends PlatformPlugin {
-  _FlutterPlatform({
+/// The flutter test platform used to integrate with package:test.
+class FlutterPlatform extends PlatformPlugin {
+  FlutterPlatform({
     @required this.shellPath,
     this.watcher,
     this.enableObservatory,
     this.machine,
     this.startPaused,
+    this.disableServiceAuthCodes,
     this.explicitObservatoryPort,
     this.host,
     this.port,
@@ -373,7 +398,10 @@ class _FlutterPlatform extends PlatformPlugin {
     this.precompiledDillFiles,
     this.trackWidgetCreation,
     this.updateGoldens,
+    this.buildTestAssets,
     this.projectRootDirectory,
+    this.flutterProject,
+    this.icudtlPath,
   }) : assert(shellPath != null);
 
   final String shellPath;
@@ -381,6 +409,7 @@ class _FlutterPlatform extends PlatformPlugin {
   final bool enableObservatory;
   final bool machine;
   final bool startPaused;
+  final bool disableServiceAuthCodes;
   final int explicitObservatoryPort;
   final InternetAddress host;
   final int port;
@@ -388,7 +417,10 @@ class _FlutterPlatform extends PlatformPlugin {
   final Map<String, String> precompiledDillFiles;
   final bool trackWidgetCreation;
   final bool updateGoldens;
+  final bool buildTestAssets;
   final Uri projectRootDirectory;
+  final FlutterProject flutterProject;
+  final String icudtlPath;
 
   Directory fontsDirectory;
   _Compiler compiler;
@@ -433,14 +465,16 @@ class _FlutterPlatform extends PlatformPlugin {
   }
 
   @override
-  StreamChannel<dynamic> loadChannel(String testPath, SuitePlatform platform) {
+  StreamChannel<dynamic> loadChannel(String path, SuitePlatform platform) {
     if (_testCount > 0) {
       // Fail if there will be a port conflict.
-      if (explicitObservatoryPort != null)
+      if (explicitObservatoryPort != null) {
         throwToolExit('installHook() was called with an observatory port or debugger mode enabled, but then more than one test suite was run.');
+      }
       // Fail if we're passing in a precompiled entry-point.
-      if (precompiledDillPath != null)
+      if (precompiledDillPath != null) {
         throwToolExit('installHook() was called with a precompiled test entry-point, but then more than one test suite was run.');
+      }
     }
     final int ourTestCount = _testCount;
     _testCount += 1;
@@ -459,7 +493,7 @@ class _FlutterPlatform extends PlatformPlugin {
       localController.stream,
       remoteSink,
     );
-    testCompleteCompleter.complete(_startTest(testPath, localChannel, ourTestCount));
+    testCompleteCompleter.complete(_startTest(path, localChannel, ourTestCount));
     return remoteChannel;
   }
 
@@ -545,7 +579,7 @@ class _FlutterPlatform extends PlatformPlugin {
 
       if (precompiledDillPath == null && precompiledDillFiles == null) {
         // Lazily instantiate compiler so it is built only if it is actually used.
-        compiler ??= _Compiler(trackWidgetCreation, projectRootDirectory);
+        compiler ??= _Compiler(trackWidgetCreation, projectRootDirectory, flutterProject);
         mainDart = await compiler.compile(mainDart);
 
         if (mainDart == null) {
@@ -560,6 +594,7 @@ class _FlutterPlatform extends PlatformPlugin {
         packages: PackageMap.globalPackagesPath,
         enableObservatory: enableObservatory,
         startPaused: startPaused,
+        disableServiceAuthCodes: disableServiceAuthCodes,
         observatoryPort: explicitObservatoryPort,
         serverPort: server.port,
       );
@@ -907,6 +942,7 @@ class _FlutterPlatform extends PlatformPlugin {
     String packages,
     bool enableObservatory = false,
     bool startPaused = false,
+    bool disableServiceAuthCodes = false,
     int observatoryPort,
     int serverPort,
   }) {
@@ -928,11 +964,18 @@ class _FlutterPlatform extends PlatformPlugin {
       if (startPaused) {
         command.add('--start-paused');
       }
+      if (disableServiceAuthCodes) {
+        command.add('--disable-service-auth-codes');
+      }
     } else {
       command.add('--disable-observatory');
     }
     if (host.type == InternetAddressType.IPv6) {
       command.add('--ipv6');
+    }
+
+    if (icudtlPath != null) {
+      command.add('--icu-data-file-path=$icudtlPath');
     }
 
     command.addAll(<String>[
@@ -952,6 +995,10 @@ class _FlutterPlatform extends PlatformPlugin {
       'FONTCONFIG_FILE': _fontConfigFile.path,
       'SERVER_PORT': serverPort.toString(),
     };
+    if (buildTestAssets) {
+      environment['UNIT_TEST_ASSETS'] = fs.path.join(
+        flutterProject.directory.path, 'build', 'unit_test_assets');
+    }
     return processManager.start(command, environment: environment);
   }
 

@@ -17,6 +17,7 @@ import '../build_info.dart';
 import '../convert.dart';
 import '../device.dart';
 import '../globals.dart';
+import '../project.dart';
 import '../protocol_discovery.dart';
 import 'code_signing.dart';
 import 'ios_workflow.dart';
@@ -235,7 +236,6 @@ class IOSDevice extends Device {
     DebuggingOptions debuggingOptions,
     Map<String, dynamic> platformArgs,
     bool prebuiltApplication = false,
-    bool applicationNeedsRebuild = false,
     bool usesTerminalUi = true,
     bool ipv6 = false,
   }) async {
@@ -280,6 +280,9 @@ class IOSDevice extends Device {
     if (debuggingOptions.startPaused)
       launchArguments.add('--start-paused');
 
+    if (debuggingOptions.disableServiceAuthCodes)
+      launchArguments.add('--disable-service-auth-codes');
+
     if (debuggingOptions.useTestFonts)
       launchArguments.add('--use-test-fonts');
 
@@ -297,13 +300,20 @@ class IOSDevice extends Device {
     if (debuggingOptions.traceSkia)
       launchArguments.add('--trace-skia');
 
+    if (debuggingOptions.dumpSkpOnShaderCompilation)
+      launchArguments.add('--dump-skp-on-shader-compilation');
+
+    if (debuggingOptions.verboseSystemLogs) {
+      launchArguments.add('--verbose-logging');
+    }
+
     if (platformArgs['trace-startup'] ?? false)
       launchArguments.add('--trace-startup');
 
     int installationResult = -1;
     Uri localObservatoryUri;
 
-    final Status installStatus = logger.startProgress('Installing and launching...', timeout: kSlowOperation);
+    final Status installStatus = logger.startProgress('Installing and launching...', timeout: timeoutConfiguration.slowOperation);
 
     if (!debuggingOptions.debuggingEnabled) {
       // If debugging is not enabled, just launch the application and continue.
@@ -383,8 +393,7 @@ class IOSDevice extends Device {
   DevicePortForwarder get portForwarder => _portForwarder ??= _IOSDevicePortForwarder(this);
 
   @override
-  void clearLogs() {
-  }
+  void clearLogs() { }
 
   @override
   bool get supportsScreenshot => iMobileDevice.isInstalled;
@@ -392,6 +401,11 @@ class IOSDevice extends Device {
   @override
   Future<void> takeScreenshot(File outputFile) async {
     await iMobileDevice.takeScreenshot(outputFile);
+  }
+
+  @override
+  bool isSupportedForProject(FlutterProject flutterProject) {
+    return flutterProject.ios.existsSync();
   }
 }
 
@@ -426,7 +440,7 @@ String decodeSyslog(String line) {
   try {
     final List<int> bytes = utf8.encode(line);
     final List<int> out = <int>[];
-    for (int i = 0; i < bytes.length; ) {
+    for (int i = 0; i < bytes.length;) {
       if (bytes[i] != kBackslash || i > bytes.length - 4) {
         // Unmapped byte: copy as-is.
         out.add(bytes[i++]);

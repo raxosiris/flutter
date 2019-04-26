@@ -55,7 +55,7 @@ void main() {
 
     testWidgets('ListWheelScrollView needs positive magnification', (WidgetTester tester) async {
       expect(
-            () {
+        () {
           ListWheelScrollView(
             useMagnifier: true,
             magnification: -1.0,
@@ -79,7 +79,7 @@ void main() {
           child: ListWheelScrollView.useDelegate(
             controller: controller,
             itemExtent: 100.0,
-            onSelectedItemChanged: (_) {},
+            onSelectedItemChanged: (_) { },
             childDelegate: ListWheelChildLoopingListDelegate(
               children: List<Widget>.generate(10, (int index) {
                 return Container(
@@ -125,7 +125,7 @@ void main() {
           child: ListWheelScrollView.useDelegate(
             controller: controller,
             itemExtent: 100.0,
-            onSelectedItemChanged: (_) {},
+            onSelectedItemChanged: (_) { },
             childDelegate: ListWheelChildBuilderDelegate(
               builder: (BuildContext context, int index) {
                 return Container(
@@ -168,7 +168,7 @@ void main() {
           child: ListWheelScrollView.useDelegate(
             controller: controller,
             itemExtent: 100.0,
-            onSelectedItemChanged: (_) {},
+            onSelectedItemChanged: (_) { },
             childDelegate: ListWheelChildBuilderDelegate(
               builder: (BuildContext context, int index) {
                 if (index < -15 || index > -5)
@@ -277,7 +277,7 @@ void main() {
     });
 
     testWidgets('builder is never called twice for same index', (WidgetTester tester) async {
-      final Set<int> builtChildren = Set<int>();
+      final Set<int> builtChildren = <int>{};
       final FixedExtentScrollController controller =
         FixedExtentScrollController();
 
@@ -287,7 +287,7 @@ void main() {
           child: ListWheelScrollView.useDelegate(
             controller: controller,
             itemExtent: 100.0,
-            onSelectedItemChanged: (_) {},
+            onSelectedItemChanged: (_) { },
             childDelegate: ListWheelChildBuilderDelegate(
               builder: (BuildContext context, int index) {
                 expect(builtChildren.contains(index), false);
@@ -323,7 +323,7 @@ void main() {
           child: ListWheelScrollView(
             controller: controller,
             itemExtent: 100.0,
-            onSelectedItemChanged: (_) {},
+            onSelectedItemChanged: (_) { },
             children: List<Widget>.generate(16, (int index) {
               return Text(index.toString());
             }),
@@ -348,6 +348,51 @@ void main() {
       // Item 15 is in the middle. There are 3 children visible before it, so the
       // value of childCount should be 4.
       expect(viewport.childCount, 4);
+    });
+
+    testWidgets('a tighter squeeze lays out more children', (WidgetTester tester) async {
+      final FixedExtentScrollController controller =
+        FixedExtentScrollController(initialItem: 10);
+
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: ListWheelScrollView(
+            controller: controller,
+            itemExtent: 100.0,
+            onSelectedItemChanged: (_) { },
+            children: List<Widget>.generate(20, (int index) {
+              return Text(index.toString());
+            }),
+          ),
+        )
+      );
+
+      final RenderListWheelViewport viewport = tester.firstRenderObject(find.byType(Text)).parent.parent;
+
+      // The screen is vertically 600px. Since the middle item is centered,
+      // half of the first and last items are visible, making 7 children visible.
+      expect(viewport.childCount, 7);
+
+      // Pump the same widget again but with double the squeeze.
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: ListWheelScrollView(
+            controller: controller,
+            itemExtent: 100.0,
+            squeeze: 2,
+            onSelectedItemChanged: (_) { },
+            children: List<Widget>.generate(20, (int index) {
+              return Text(index.toString());
+            }),
+          ),
+        )
+      );
+
+      // 12 instead of 6 children are laid out + 1 because the middle item is
+      // centered.
+      expect(viewport.childCount, 13);
     });
   });
 

@@ -154,12 +154,12 @@ void main() {
       CupertinoApp(
         home: CupertinoNavigationBar(
           leading: CupertinoButton(
-            onPressed: () {},
+            onPressed: () { },
             child: const _ExpectStyles(color: CupertinoColors.activeBlue, index: 0x000001),
           ),
           middle: const _ExpectStyles(color: CupertinoColors.black, index: 0x000100),
           trailing: CupertinoButton(
-            onPressed: () {},
+            onPressed: () { },
             child: const _ExpectStyles(color: CupertinoColors.activeBlue, index: 0x010000),
           ),
         ),
@@ -175,12 +175,12 @@ void main() {
         theme: const CupertinoThemeData(brightness: Brightness.dark),
         home: CupertinoNavigationBar(
           leading: CupertinoButton(
-            onPressed: () {},
+            onPressed: () { },
             child: const _ExpectStyles(color: CupertinoColors.activeOrange, index: 0x000001),
           ),
           middle: const _ExpectStyles(color: CupertinoColors.white, index: 0x000100),
           trailing: CupertinoButton(
-            onPressed: () {},
+            onPressed: () { },
             child: const _ExpectStyles(color: CupertinoColors.activeOrange, index: 0x010000),
           ),
         ),
@@ -195,12 +195,12 @@ void main() {
       CupertinoApp(
         home: CupertinoNavigationBar(
           leading: CupertinoButton(
-            onPressed: () {},
+            onPressed: () { },
             child: const _ExpectStyles(color: Color(0xFF001122), index: 0x000001),
           ),
           middle: const _ExpectStyles(color: Color(0xFF000000), index: 0x000100),
           trailing: CupertinoButton(
-            onPressed: () {},
+            onPressed: () { },
             child: const _ExpectStyles(color: Color(0xFF001122), index: 0x010000),
           ),
           actionsForegroundColor: const Color(0xFF001122),
@@ -645,9 +645,7 @@ void main() {
     expect(decoration.border, isNull);
   });
 
-  testWidgets(
-      'Border is displayed by default in sliver nav bar',
-      (WidgetTester tester) async {
+  testWidgets('Border is displayed by default in sliver nav bar', (WidgetTester tester) async {
     await tester.pumpWidget(
       const CupertinoApp(
         home: CupertinoPageScaffold(
@@ -675,9 +673,7 @@ void main() {
     expect(bottom, isNotNull);
   });
 
-  testWidgets(
-      'Border is not displayed when null in sliver nav bar',
-      (WidgetTester tester) async {
+  testWidgets('Border is not displayed when null in sliver nav bar', (WidgetTester tester) async {
     await tester.pumpWidget(
       const CupertinoApp(
         home: CupertinoPageScaffold(
@@ -749,9 +745,7 @@ void main() {
     semantics.dispose();
   });
 
-  testWidgets(
-      'Border can be overridden in sliver nav bar',
-      (WidgetTester tester) async {
+  testWidgets('Border can be overridden in sliver nav bar', (WidgetTester tester) async {
     await tester.pumpWidget(
       const CupertinoApp(
         home: CupertinoPageScaffold(
@@ -888,6 +882,28 @@ void main() {
       ),
     );
     expect(SystemChrome.latestStyle, SystemUiOverlayStyle.dark);
+  });
+
+  testWidgets('CupertinoNavigationBarBackButton shows an error when manually added outside a route', (WidgetTester tester) async {
+    await tester.pumpWidget(
+      const CupertinoNavigationBarBackButton()
+    );
+
+    final dynamic exception = tester.takeException();
+    expect(exception, isAssertionError);
+    expect(exception.toString(), contains('CupertinoNavigationBarBackButton should only be used in routes that can be popped'));
+  });
+
+  testWidgets('CupertinoNavigationBarBackButton shows an error when placed in a route that cannot be popped', (WidgetTester tester) async {
+      await tester.pumpWidget(
+        const CupertinoApp(
+          home: CupertinoNavigationBarBackButton(),
+        ),
+      );
+
+      final dynamic exception = tester.takeException();
+      expect(exception, isAssertionError);
+      expect(exception.toString(), contains('CupertinoNavigationBarBackButton should only be used in routes that can be popped'));
   });
 }
 

@@ -809,7 +809,7 @@ class _LargeTitleNavigationBarSliverDelegate
 
   @override
   bool shouldRebuild(_LargeTitleNavigationBarSliverDelegate oldDelegate) {
-       return components != oldDelegate.components
+    return components != oldDelegate.components
         || userMiddle != oldDelegate.userMiddle
         || backgroundColor != oldDelegate.backgroundColor
         || border != oldDelegate.border
@@ -1231,7 +1231,7 @@ class CupertinoNavigationBarBackButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final ModalRoute<dynamic> currentRoute = ModalRoute.of(context);
     assert(
-      currentRoute.canPop,
+      currentRoute?.canPop == true,
       'CupertinoNavigationBarBackButton should only be used in routes that can be popped',
     );
 
@@ -2001,8 +2001,7 @@ class _NavigationBarComponentsTransition {
     // text.
     if (bottomLargeTitle != null &&
         topBackLabel != null &&
-        bottomLargeExpanded
-    ) {
+        bottomLargeExpanded) {
       return PositionedTransition(
         rect: animation.drive(slideFromLeadingEdge(
           fromKey: bottomComponents.largeTitleKey,
