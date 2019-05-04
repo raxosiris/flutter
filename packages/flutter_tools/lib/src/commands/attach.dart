@@ -160,7 +160,7 @@ class AttachCommand extends FlutterCommand {
 
   @override
   Future<FlutterCommandResult> runCommand() async {
-    final FlutterProject flutterProject = await FlutterProject.current();
+    final FlutterProject flutterProject = FlutterProject.current();
 
     Cache.releaseLockEarly();
 
@@ -216,7 +216,9 @@ class AttachCommand extends FlutterCommand {
         }
       } else if ((device is IOSDevice) || (device is IOSSimulator)) {
         final MDnsObservatoryDiscoveryResult result = await MDnsObservatoryDiscovery().query(applicationId: appId);
-        observatoryUri = await _buildObservatoryUri(device, hostname, result.port, result.authCode);
+        if (result != null) {
+          observatoryUri = await _buildObservatoryUri(device, hostname, result.port, result.authCode);
+        }
       }
       // If MDNS discovery fails or we're not on iOS, fallback to ProtocolDiscovery.
       if (observatoryUri == null) {
