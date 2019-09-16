@@ -2155,16 +2155,7 @@ class ScaffoldState extends State<Scaffold> with TickerProviderStateMixin {
               top: Divider.createBorderSide(context, width: 1.0),
             ),
           ),
-          child: SafeArea(
-            child: ButtonTheme.bar(
-              child: SafeArea(
-                top: false,
-                child: ButtonBar(
-                  children: widget.persistentFooterButtons,
-                ),
-              ),
-            ),
-          ),
+          child: widget.persistentFooterButtons
         ),
         _ScaffoldSlot.persistentFooter,
         removeLeftPadding: false,
