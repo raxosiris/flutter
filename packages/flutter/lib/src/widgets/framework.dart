@@ -2176,14 +2176,7 @@ class BuildOwner {
   /// the [FocusScopeNode] for a given [BuildContext].
   ///
   /// See [FocusManager] for more details.
-  FocusManager get focusManager {
-    _focusManager ??= FocusManager();
-    return _focusManager;
-  }
-  FocusManager _focusManager;
-  set focusManager(FocusManager focusManager) {
-    _focusManager = focusManager;
-  }
+  FocusManager focusManager = FocusManager();
 
   /// Adds an element to the dirty elements list so that it will be rebuilt
   /// when [WidgetsBinding.drawFrame] calls [buildScope].
@@ -5015,6 +5008,15 @@ abstract class RenderObjectElement extends Element {
   /// this element has a single child, the slot should always be null. If this
   /// element has a list of children, the previous sibling is a convenient value
   /// for the slot.
+  ///
+  /// This method is only ever called if [updateChild] can end up being called
+  /// with an existing [Element] child and a `slot` that differs from the slot
+  /// that element was previously given. [MultiChildRenderObjectElement] does this,
+  /// for example. [SingleChildRenderObjectElement] does not (since the `slot` is
+  /// always null). An [Element] that has a specific set of slots with each child
+  /// always having the same slot (and where children in different slots are never
+  /// compared against each other for the purposes of updating one slot with the
+  /// element from another slot) would never call this.
   @protected
   void moveChildRenderObject(covariant RenderObject child, covariant dynamic slot);
 
